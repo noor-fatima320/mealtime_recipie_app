@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'upgrade_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -11,12 +15,78 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool notifications = true;
 
+  // ============================================================
+  // PROFILE DATA
+  // ============================================================
+
+  String accountName = "Ramy";
+  String accountEmail = "ramy@example.co.uk";
+
+  // Selected profile image bytes
+  Uint8List? profileImageBytes;
+
+  final ImagePicker imagePicker = ImagePicker();
+
+  // ============================================================
+  // UPGRADE
+  // ============================================================
+
   void openUpgrade() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const UpgradeScreen()),
     );
   }
+
+  // ============================================================
+  // PICK PROFILE IMAGE
+  // ============================================================
+
+  Future<void> pickProfileImage(StateSetter setDialogState) async {
+    try {
+      final XFile? pickedImage = await imagePicker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+      if (pickedImage == null) {
+        return;
+      }
+
+      final Uint8List imageBytes = await pickedImage.readAsBytes();
+
+      setDialogState(() {
+        profileImageBytes = imageBytes;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Unable to select image: $e")));
+    }
+  }
+
+  // ============================================================
+  // PROFILE IMAGE WIDGET
+  // ============================================================
+
+  Widget profileImage({double radius = 34}) {
+    if (profileImageBytes != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: MemoryImage(profileImageBytes!),
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: const AssetImage("assets/images/profile.png"),
+    );
+  }
+
+  // ============================================================
+  // ACCOUNT MENU
+  // ============================================================
 
   void showAccountMenu() {
     showModalBottomSheet(
@@ -78,76 +148,177 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void showEditAccount() {
-    final nameController = TextEditingController(text: "Ramy");
+  // ============================================================
+  // EDIT ACCOUNT
+  // ============================================================
 
-    final emailController = TextEditingController(text: "ramy@example.co.uk");
+  void showEditAccount() {
+    final nameController = TextEditingController(text: accountName);
+
+    final emailController = TextEditingController(text: accountEmail);
 
     showDialog(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          backgroundColor: const Color(0xffFCF8F3),
-          title: const Text(
-            "Edit Your Account",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: "Name",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xffFCF8F3),
+
+              title: const Text(
+                "Edit Your Account",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ==================================================
+                    // PROFILE IMAGE
+                    // ==================================================
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        profileImage(radius: 45),
+
+                        Positioned(
+                          bottom: -2,
+                          right: -5,
+                          child: GestureDetector(
+                            onTap: () {
+                              pickProfileImage(setDialogState);
+                            },
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: const BoxDecoration(
+                                color: Color(0xffF7931A),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 18,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextButton(
+                      onPressed: () {
+                        pickProfileImage(setDialogState);
+                      },
+                      child: const Text(
+                        "Change Profile Photo",
+                        style: TextStyle(
+                          color: Color(0xffF7931A),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ==================================================
+                    // NAME
+                    // ==================================================
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: "Name",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ==================================================
+                    // EMAIL
+                    // ==================================================
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: "Email",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              actions: [
+                // ==================================================
+                // CANCEL
+                // ==================================================
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text("Cancel"),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text("Cancel"),
-            ),
 
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
+                // ==================================================
+                // SAVE
+                // ==================================================
+                ElevatedButton(
+                  onPressed: () {
+                    final newName = nameController.text.trim();
+                    final newEmail = emailController.text.trim();
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Account updated successfully"),
-                    backgroundColor: Colors.green,
+                    if (newName.isEmpty || newEmail.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Name and email cannot be empty"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // IMPORTANT:
+                    // Update main SettingsScreen state
+                    setState(() {
+                      accountName = newName;
+                      accountEmail = newEmail;
+                    });
+
+                    Navigator.pop(dialogContext);
+
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Account updated successfully"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xffF7931A),
+                    foregroundColor: Colors.black,
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xffF7931A),
-                foregroundColor: Colors.black,
-              ),
-              child: const Text("Save"),
-            ),
-          ],
+
+                  child: const Text("Save"),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
+
+  // ============================================================
+  // SWITCH ACCOUNT
+  // ============================================================
 
   void showSwitchAccount() {
     showModalBottomSheet(
@@ -171,13 +342,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 20),
 
                 ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: const AssetImage(
-                      "assets/images/profile.png",
-                    ),
-                  ),
-                  title: const Text("Ramy"),
-                  subtitle: const Text("ramy@example.co.uk"),
+                  leading: profileImage(radius: 25),
+
+                  title: Text(accountName),
+
+                  subtitle: Text(accountEmail),
+
                   trailing: const Icon(Icons.check_circle, color: Colors.green),
                 ),
 
@@ -185,7 +355,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 ListTile(
                   leading: const Icon(Icons.add),
+
                   title: const Text("Add another account"),
+
                   onTap: () {
                     Navigator.pop(context);
 
@@ -203,6 +375,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+
+  // ============================================================
+  // FOOD WASTE
+  // ============================================================
 
   void showFoodWaste() {
     showDialog(
@@ -234,6 +410,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ============================================================
+  // EATING PREFERENCES
+  // ============================================================
+
   void showEatingPreferences() {
     bool vegetarian = false;
     bool glutenFree = false;
@@ -262,6 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       });
                     },
                   ),
+
                   CheckboxListTile(
                     title: const Text("Gluten Free"),
                     value: glutenFree,
@@ -299,6 +480,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+
+  // ============================================================
+  // YOUR RECIPES
+  // ============================================================
 
   void showYourRecipes() {
     showModalBottomSheet(
@@ -352,11 +537,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ============================================================
+  // SHARE
+  // ============================================================
+
   void shareMealime() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Share Mealime option selected")),
     );
   }
+
+  // ============================================================
+  // CHEFS
+  // ============================================================
 
   void meetOurChefs() {
     showDialog(
@@ -387,6 +580,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+
+  // ============================================================
+  // SETTING ITEM
+  // ============================================================
 
   Widget settingItem({
     required IconData icon,
@@ -422,6 +619,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -468,12 +669,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           clipBehavior: Clip.none,
                           alignment: Alignment.center,
                           children: [
-                            const CircleAvatar(
-                              radius: 34,
-                              backgroundImage: AssetImage(
-                                "assets/images/profile.png",
-                              ),
-                            ),
+                            profileImage(radius: 34),
 
                             Positioned(
                               bottom: -4,
@@ -492,9 +688,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              "ramy@example.co.uk",
-                              style: TextStyle(
+                            Text(
+                              accountEmail,
+                              style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 13,
                               ),
@@ -663,6 +859,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  // ============================================================
+  // NAV ITEM
+  // ============================================================
 
   Widget navItem({
     required IconData icon,
